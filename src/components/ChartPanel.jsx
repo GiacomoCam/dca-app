@@ -3,6 +3,8 @@ import React from 'react';
 import Plot from 'react-plotly.js';
 import { q_t } from '../utils/arps';
 
+const DAYS_PER_MONTH = 30.4375;
+
 const ChartPanel = ({ data, fitResults, forecastConfig }) => {
     if (!data || data.length === 0) {
         return (
@@ -30,10 +32,6 @@ const ChartPanel = ({ data, fitResults, forecastConfig }) => {
         const { years } = forecastConfig;
 
         // Generate fit line (History portion)
-        const fitX = data.map(d => d.date); // Using dates directly might be tricky for plot if gaps. Better to use time step if possible.
-        // Plotly handles dates well. We need to map t back to date or just plot against t?
-        // User wants date on axis.
-
         // We used t (days from start) for fitting.
         // Let's generate a smooth line
         const maxT = data[data.length - 1].t;
@@ -47,7 +45,7 @@ const ChartPanel = ({ data, fitResults, forecastConfig }) => {
         const steps = 200;
         for (let i = 0; i <= steps; i++) {
             const t = (forecastT * i) / steps;
-            const q = q_t(t, params.qi, params.Di, params.b);
+            const q = q_t(t / DAYS_PER_MONTH, params.qi, params.Di, params.b);
 
             const d = new Date(startDate);
             d.setDate(d.getDate() + t); // add days
@@ -84,6 +82,8 @@ const ChartPanel = ({ data, fitResults, forecastConfig }) => {
                         yaxis: {
                             title: 'Rate',
                             type: 'linear', // Can toggle logic in parent if needed
+                            range: [0, null],
+                            rangemode: 'tozero',
                             gridcolor: '#e2e8f0',
                         },
                         margin: { t: 40, r: 20, b: 40, l: 60 },
