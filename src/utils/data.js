@@ -9,8 +9,6 @@ export const generateSyntheticData = (params, startRequest, durationDays = 365 *
     const { qi, Di, b } = params;
     const data = [];
 
-    // Create date range
-    const dates = [];
     const start = new Date(startRequest);
 
     for (let t = 0; t < durationDays; t += 30) { // Monthly data points

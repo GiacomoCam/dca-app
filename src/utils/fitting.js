@@ -1,6 +1,52 @@
-
 import { levenbergMarquardt as LM } from 'ml-levenberg-marquardt';
 import { q_t } from './arps';
+
+const DAYS_PER_MONTH = 30.4375;
+const toMonths = (days) => days / DAYS_PER_MONTH;
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+const toUnbounded = (value, min, max) => {
+    const safeValue = clamp(value, min + 1e-9, max - 1e-9);
+    return Math.log((safeValue - min) / (max - safeValue));
+};
+
+const fromUnbounded = (value, min, max) => {
+    const sigmoid = 1 / (1 + Math.exp(-value));
+    return min + (max - min) * sigmoid;
+};
+
+const evaluateMetrics = (x, y, modelType, params) => {
+    const yPred = x.map((t) => q_t(t, params.qi, params.Di, params.b));
+    const residuals = y.map((yi, i) => yi - yPred[i]);
+    const sse = residuals.reduce((sum, r) => sum + r * r, 0);
+    const rmse = Math.sqrt(sse / y.length);
+    const meanY = y.reduce((a, b) => a + b, 0) / y.length;
+    const sst = y.reduce((sum, yi) => sum + (yi - meanY) ** 2, 0);
+    const r2 = sst === 0 ? 1 : 1 - (sse / sst);
+    const k = modelType === 'hyperbolic' ? 3 : 2;
+    const n = y.length;
+    const safeSse = Math.max(sse, 1e-12);
+    const aic = 2 * k + n * Math.log(safeSse / n);
+
+    return { sse, rmse, r2, aic, yPred };
+};
+
+const buildCandidateGuesses = (firstRate, modelType) => {
+    const diGuesses = [0.08, 0.15, 0.3];
+    const qiGuesses = [firstRate, firstRate * 0.95, firstRate * 1.05];
+    const bGuesses = modelType === 'hyperbolic' ? [0.3, 0.5, 0.8, 1.0] : [modelType === 'harmonic' ? 1 : 0];
+
+    const candidates = [];
+    qiGuesses.forEach((qi) => {
+        diGuesses.forEach((Di) => {
+            bGuesses.forEach((b) => {
+                candidates.push([qi, Di, b]);
+            });
+        });
+    });
+
+    return candidates;
+};
 
 /**
  * Fit Arps model to data
@@ -9,87 +55,108 @@ import { q_t } from './arps';
  * @param {Object} options - { bounds, initialGuess }
  */
 export const fitData = (data, modelType, options = {}) => {
+    const firstRate = data[0].q;
     const {
-        initialGuess = [data[0].q, 0.001, 0.5], // [qi, Di, b]
-        bounds = { qi: [0, Infinity], Di: [0, Infinity], b: [0, 2] }
+        initialGuess = [firstRate, 0.15, 0.5], // [qi, Di/month, b]
+        bounds = {
+            qi: [Math.max(1e-6, firstRate * 0.5), Math.max(firstRate * 1.5, firstRate + 1e-6)],
+            Di: [0.001, 2.0],
+            b: [0, 2.0]
+        }
     } = options;
 
-    // Prepare data for LM
-    const x = data.map(d => d.t);
-    const y = data.map(d => d.q);
+    // Convert days to months so Di remains in 1/month
+    const x = data.map((d) => toMonths(d.t));
+    const y = data.map((d) => d.q);
 
-    let pInit = [...initialGuess];
+    const candidateGuesses = [initialGuess, ...buildCandidateGuesses(firstRate, modelType)];
+    let bestResult = null;
 
-    // Define the function to optimize
-    // p = [qi, Di, b]
-    let arpsModel;
+    candidateGuesses.forEach((candidate) => {
+        const clamped = {
+            qi: clamp(candidate[0], bounds.qi[0], bounds.qi[1]),
+            Di: clamp(candidate[1], bounds.Di[0], bounds.Di[1]),
+            b: clamp(candidate[2], bounds.b[0], bounds.b[1])
+        };
 
-    if (modelType === 'exponential') {
-        // Fixed b=0
-        pInit = [initialGuess[0], initialGuess[1]]; // Only optimize qi, Di
-        arpsModel = ([qi, Di]) => (t) => q_t(t, qi, Di, 0);
-    } else if (modelType === 'harmonic') {
-        // Fixed b=1
-        pInit = [initialGuess[0], initialGuess[1]]; // Only optimize qi, Di
-        arpsModel = ([qi, Di]) => (t) => q_t(t, qi, Di, 1);
-    } else {
-        // Hyperbolic b variable
-        // We need to constrain b. LM library might not support hard bounds directly in the basic usage,
-        // but we can dampen steps. simpler is to optimize and if result is out of bounds, clamp it or use parameter transformation.
-        // For now, let's try direct fitting.
-        // Parameter transformation for positivity: p = exp(param) or p^2
-        // Let's use the library as is first.
-        arpsModel = ([qi, Di, b]) => (t) => q_t(t, qi, Di, b);
+        const initialValues =
+            modelType === 'hyperbolic'
+                ? [
+                    toUnbounded(clamped.qi, bounds.qi[0], bounds.qi[1]),
+                    toUnbounded(clamped.Di, bounds.Di[0], bounds.Di[1]),
+                    toUnbounded(clamped.b, bounds.b[0], bounds.b[1])
+                ]
+                : [
+                    toUnbounded(clamped.qi, bounds.qi[0], bounds.qi[1]),
+                    toUnbounded(clamped.Di, bounds.Di[0], bounds.Di[1])
+                ];
+
+        const arpsModel = (u) => {
+            const qi = fromUnbounded(u[0], bounds.qi[0], bounds.qi[1]);
+            const Di = fromUnbounded(u[1], bounds.Di[0], bounds.Di[1]);
+            const b =
+                modelType === 'hyperbolic'
+                    ? fromUnbounded(u[2], bounds.b[0], bounds.b[1])
+                    : modelType === 'harmonic'
+                        ? 1
+                        : 0;
+            return (t) => q_t(t, qi, Di, b);
+        };
+
+        const optionsLM = {
+            damping: 1.5,
+            initialValues,
+            gradientDifference: 1e-2,
+            maxIterations: 200,
+            errorTolerance: 1e-8
+        };
+
+        try {
+            const fittedModel = LM({ x, y }, arpsModel, optionsLM);
+            const [uQi, uDi, uB] = fittedModel.parameterValues;
+            const params = {
+                qi: fromUnbounded(uQi, bounds.qi[0], bounds.qi[1]),
+                Di: fromUnbounded(uDi, bounds.Di[0], bounds.Di[1]),
+                b: modelType === 'hyperbolic' ? fromUnbounded(uB, bounds.b[0], bounds.b[1]) : modelType === 'harmonic' ? 1 : 0
+            };
+
+            const metrics = evaluateMetrics(x, y, modelType, params);
+            const qiDeviation = Math.abs(params.qi - firstRate) / Math.max(firstRate, 1e-9);
+
+            const result = {
+                params,
+                metrics,
+                status: fittedModel.parameterError,
+                iterations: fittedModel.iterations,
+                qiDeviation
+            };
+
+            if (!bestResult || result.metrics.aic < bestResult.metrics.aic) {
+                bestResult = result;
+            }
+        } catch {
+            // Try next candidate
+        }
+    });
+
+    if (!bestResult) {
+        throw new Error(`Unable to fit ${modelType} model.`);
     }
 
-    const optionsLM = {
-        damping: 1.5,
-        initialValues: pInit,
-        gradientDifference: 10e-2,
-        maxIterations: 100,
-        errorTolerance: 10e-3
-    };
-
-    const fittedModel = LM({ x, y }, arpsModel, optionsLM);
-
-    let [qi_fit, Di_fit, b_fit] = fittedModel.parameterValues;
-
-    // Map back to full params
-    if (modelType === 'exponential') {
-        b_fit = 0;
-    } else if (modelType === 'harmonic') {
-        b_fit = 1;
-    }
-
-    // Calculate metrics
-    const yPred = x.map(t => q_t(t, qi_fit, Di_fit, b_fit));
-    const residuals = y.map((yi, i) => yi - yPred[i]);
-    const sse = residuals.reduce((sum, r) => sum + r * r, 0);
-    const rmse = Math.sqrt(sse / y.length);
-    const meanY = y.reduce((a, b) => a + b, 0) / y.length;
-    const sst = y.reduce((sum, yi) => sum + (yi - meanY) ** 2, 0);
-    const r2 = 1 - (sse / sst);
-
-    // AIC = 2k + n * ln(SSE/n)
-    const k = modelType === 'hyperbolic' ? 3 : 2; // num params
-    const n = y.length;
-    const aic = 2 * k + n * Math.log(sse / n);
-
-    return {
-        params: { qi: qi_fit, Di: Di_fit, b: b_fit },
-        metrics: { sse, rmse, r2, aic },
-        status: fittedModel.parameterError,
-        iterations: fittedModel.iterations
-    };
+    return bestResult;
 };
 
 export const autoFit = (data) => {
     const models = ['exponential', 'harmonic', 'hyperbolic'];
-    const results = models.map(m => ({ model: m, ...fitData(data, m) }));
-
-    // Sort by AIC (lower is better) or RMSE
-    // AIC is better for model selection penalizing complexity
+    const results = models.map((m) => ({ modelType: m, ...fitData(data, m) }));
     results.sort((a, b) => a.metrics.aic - b.metrics.aic);
 
-    return results[0];
-}
+    const winner = results[0];
+    const runnerUp = results[1];
+
+    return {
+        ...winner,
+        selectionReason: `Selected ${winner.modelType} model because it has the lowest AIC (${winner.metrics.aic.toFixed(2)} vs ${runnerUp.modelType} ${runnerUp.metrics.aic.toFixed(2)}).`,
+        candidateResults: results
+    };
+};

@@ -17,7 +17,7 @@ const ResultsPanel = ({
         );
     }
 
-    const { params, metrics, modelType } = fitResults;
+    const { params, metrics, modelType, selectionReason, qiDeviation } = fitResults;
 
     // Format numbers helper
     const fmt = (n, d = 4) => n?.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }) ?? '-';
@@ -70,6 +70,22 @@ const ResultsPanel = ({
                     </div>
                 </div>
 
+                {selectionReason && (
+                    <div className="bg-blue-50 rounded-lg border border-blue-100 shadow-sm p-4">
+                        <h3 className="text-xs font-bold text-blue-700 uppercase mb-2 text-center">Auto Model Selection</h3>
+                        <p className="text-xs text-blue-900 leading-relaxed">{selectionReason}</p>
+                    </div>
+                )}
+
+                {typeof qiDeviation === 'number' && qiDeviation > 0.15 && (
+                    <div className="bg-amber-50 rounded-lg border border-amber-100 shadow-sm p-4">
+                        <h3 className="text-xs font-bold text-amber-700 uppercase mb-2 text-center">Fit Quality Warning</h3>
+                        <p className="text-xs text-amber-900 leading-relaxed">
+                            Fitted qi differs from the first data point by {(qiDeviation * 100).toFixed(1)}%. This can indicate an issue with fitting window or data quality.
+                        </p>
+                    </div>
+                )}
+
                 {/* Forecast Configuration */}
                 <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
                     <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 text-center">Forecast</h3>
@@ -106,9 +122,9 @@ const ResultsPanel = ({
                                 <span className="text-green-800">Time to Limit:</span>
                                 <span className="font-bold text-green-900">
                                     {(() => {
-                                        const days = time_to_limit(forecastConfig.qLimit, params.qi, params.Di, params.b);
-                                        if (days === Infinity) return 'Never';
-                                        return `${(days / 365).toFixed(1)} years`;
+                                        const months = time_to_limit(forecastConfig.qLimit, params.qi, params.Di, params.b);
+                                        if (months === Infinity) return 'Never';
+                                        return `${(months / 12).toFixed(1)} years`;
                                     })()}
                                 </span>
                             </div>

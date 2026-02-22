@@ -8,8 +8,7 @@ const InputPanel = ({
     onDataLoaded,
     onFitRequest,
     fitConfig,
-    setFitConfig,
-    onReset
+    setFitConfig
 }) => {
     const [pasteContent, setPasteContent] = useState('');
     const [activeTab, setActiveTab] = useState('upload'); // 'upload' | 'paste' | 'params'

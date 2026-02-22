@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Activity } from 'lucide-react';
 import InputPanel from './components/InputPanel';
 import ChartPanel from './components/ChartPanel';
