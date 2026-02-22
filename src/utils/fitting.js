@@ -4,6 +4,18 @@ import { q_t } from './arps';
 const DAYS_PER_MONTH = 30.4375;
 const toMonths = (days) => days / DAYS_PER_MONTH;
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+const DEFAULT_QI_SPAN = 1;
+
+const ensureValidRange = (min, max, fallbackSpan = DEFAULT_QI_SPAN) => {
+    const finiteMin = Number.isFinite(min) ? min : 0;
+    const finiteMax = Number.isFinite(max) ? max : finiteMin + fallbackSpan;
+
+    if (finiteMax <= finiteMin) {
+        return [finiteMin, finiteMin + Math.max(fallbackSpan, 1e-6)];
+    }
+
+    return [finiteMin, finiteMax];
+};
 
 const toUnbounded = (value, min, max) => {
     const safeValue = clamp(value, min + 1e-9, max - 1e-9);
@@ -56,14 +68,24 @@ const buildCandidateGuesses = (firstRate, modelType) => {
  */
 export const fitData = (data, modelType, options = {}) => {
     const firstRate = data[0].q;
+    const maxRate = data.reduce((max, { q }) => Math.max(max, q), 0);
+    const qiLowerDefault = Math.max(1e-6, firstRate * 0.5);
+    const qiUpperTarget = Math.max(firstRate * 1.5, maxRate * 1.05, firstRate + 1e-6);
+    const [qiLower, qiUpper] = ensureValidRange(qiLowerDefault, qiUpperTarget, Math.max(maxRate, DEFAULT_QI_SPAN));
     const {
         initialGuess = [firstRate, 0.15, 0.5], // [qi, Di/month, b]
         bounds = {
-            qi: [Math.max(1e-6, firstRate * 0.5), Math.max(firstRate * 1.5, firstRate + 1e-6)],
+            qi: [qiLower, qiUpper],
             Di: [0.001, 2.0],
             b: [0, 2.0]
         }
     } = options;
+
+    const normalizedBounds = {
+        qi: ensureValidRange(bounds.qi[0], bounds.qi[1], Math.max(maxRate, DEFAULT_QI_SPAN)),
+        Di: ensureValidRange(bounds.Di[0], bounds.Di[1], 0.1),
+        b: ensureValidRange(bounds.b[0], bounds.b[1], 0.1)
+    };
 
     // Convert days to months so Di remains in 1/month
     const x = data.map((d) => toMonths(d.t));
@@ -74,29 +96,29 @@ export const fitData = (data, modelType, options = {}) => {
 
     candidateGuesses.forEach((candidate) => {
         const clamped = {
-            qi: clamp(candidate[0], bounds.qi[0], bounds.qi[1]),
-            Di: clamp(candidate[1], bounds.Di[0], bounds.Di[1]),
-            b: clamp(candidate[2], bounds.b[0], bounds.b[1])
+            qi: clamp(candidate[0], normalizedBounds.qi[0], normalizedBounds.qi[1]),
+            Di: clamp(candidate[1], normalizedBounds.Di[0], normalizedBounds.Di[1]),
+            b: clamp(candidate[2], normalizedBounds.b[0], normalizedBounds.b[1])
         };
 
         const initialValues =
             modelType === 'hyperbolic'
                 ? [
-                    toUnbounded(clamped.qi, bounds.qi[0], bounds.qi[1]),
-                    toUnbounded(clamped.Di, bounds.Di[0], bounds.Di[1]),
-                    toUnbounded(clamped.b, bounds.b[0], bounds.b[1])
+                    toUnbounded(clamped.qi, normalizedBounds.qi[0], normalizedBounds.qi[1]),
+                    toUnbounded(clamped.Di, normalizedBounds.Di[0], normalizedBounds.Di[1]),
+                    toUnbounded(clamped.b, normalizedBounds.b[0], normalizedBounds.b[1])
                 ]
                 : [
-                    toUnbounded(clamped.qi, bounds.qi[0], bounds.qi[1]),
-                    toUnbounded(clamped.Di, bounds.Di[0], bounds.Di[1])
+                    toUnbounded(clamped.qi, normalizedBounds.qi[0], normalizedBounds.qi[1]),
+                    toUnbounded(clamped.Di, normalizedBounds.Di[0], normalizedBounds.Di[1])
                 ];
 
         const arpsModel = (u) => {
-            const qi = fromUnbounded(u[0], bounds.qi[0], bounds.qi[1]);
-            const Di = fromUnbounded(u[1], bounds.Di[0], bounds.Di[1]);
+            const qi = fromUnbounded(u[0], normalizedBounds.qi[0], normalizedBounds.qi[1]);
+            const Di = fromUnbounded(u[1], normalizedBounds.Di[0], normalizedBounds.Di[1]);
             const b =
                 modelType === 'hyperbolic'
-                    ? fromUnbounded(u[2], bounds.b[0], bounds.b[1])
+                    ? fromUnbounded(u[2], normalizedBounds.b[0], normalizedBounds.b[1])
                     : modelType === 'harmonic'
                         ? 1
                         : 0;
@@ -115,9 +137,9 @@ export const fitData = (data, modelType, options = {}) => {
             const fittedModel = LM({ x, y }, arpsModel, optionsLM);
             const [uQi, uDi, uB] = fittedModel.parameterValues;
             const params = {
-                qi: fromUnbounded(uQi, bounds.qi[0], bounds.qi[1]),
-                Di: fromUnbounded(uDi, bounds.Di[0], bounds.Di[1]),
-                b: modelType === 'hyperbolic' ? fromUnbounded(uB, bounds.b[0], bounds.b[1]) : modelType === 'harmonic' ? 1 : 0
+                qi: fromUnbounded(uQi, normalizedBounds.qi[0], normalizedBounds.qi[1]),
+                Di: fromUnbounded(uDi, normalizedBounds.Di[0], normalizedBounds.Di[1]),
+                b: modelType === 'hyperbolic' ? fromUnbounded(uB, normalizedBounds.b[0], normalizedBounds.b[1]) : modelType === 'harmonic' ? 1 : 0
             };
 
             const metrics = evaluateMetrics(x, y, modelType, params);
