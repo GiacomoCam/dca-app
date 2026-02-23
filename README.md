@@ -1,16 +1,40 @@
-# React + Vite
+# DCA Pro — Decline Curve Analysis Tool
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A professional web application for petroleum engineering decline curve analysis, 
+built to demonstrate Arps decline models on real production data.
 
-Currently, two official plugins are available:
+## About
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Built by **Jainer Campo** — Petroleum Engineer (BSc, IUP Santiago Mariño) 
+with specialized expertise in heavy oil recovery and Venezuelan reservoir operations.
 
-## React Compiler
+This tool is part of a portfolio of petroleum engineering applications 
+demonstrating the intersection of reservoir engineering knowledge 
+and modern AI-assisted development.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features
 
-## Expanding the ESLint configuration
+- **Three Arps decline models:** Exponential (b=0), Hyperbolic (0<b<1), Harmonic (b=1)
+- **Auto model selection** using AIC (Akaike Information Criterion)
+- **Levenberg-Marquardt optimization** for robust curve fitting
+- **Fit quality warnings** — flags build-up phases and poor fits automatically
+- **Forecast horizon** up to 50 years with economic limit detection
+- **CSV upload or paste** production data directly
+- **Synthetic data generator** for practice and testing
+- **Export report** functionality
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Engineering Notes
+
+- DCA is only valid during boundary-dominated flow — always set fit window 
+  to start at peak production, not first production
+- Di initialized at petroleum-realistic values (0.05–0.30/month)
+- b values above 1.0 trigger a warning — uncommon in conventional reservoirs
+
+## Tech Stack
+
+React · Vite · Plotly.js · Levenberg-Marquardt (optimization) · 
+GitHub Pages (deployment) · GitHub Actions (CI/CD)
+
+## Live App
+
+[https://giacomocam.github.io/dca-app/](https://giacomocam.github.io/dca-app/)
