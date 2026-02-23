@@ -1,39 +1,51 @@
 # DCA Pro — Decline Curve Analysis Tool
 
-A professional web application for petroleum engineering decline curve analysis, 
-built to demonstrate Arps decline models on real production data.
+A professional web application for performing **Arps Decline Curve Analysis (DCA)** on oil production data.
 
-## About
+This tool allows petroleum engineers to fit exponential, hyperbolic, and harmonic decline models to production data and generate production forecasts.
 
-Built by **Jainer Molina ** — Petroleum Engineer with specialized expertise in heavy oil recovery and Venezuelan reservoir operations.
-
-This tool is part of a portfolio of petroleum engineering applications 
-demonstrating the intersection of reservoir engineering knowledge 
-and modern AI-assisted development.
+---
 
 ## Features
 
-- **Three Arps decline models:** Exponential (b=0), Hyperbolic (0<b<1), Harmonic (b=1)
-- **Auto model selection** using AIC (Akaike Information Criterion)
-- **Levenberg-Marquardt optimization** for robust curve fitting
-- **Fit quality warnings** — flags build-up phases and poor fits automatically
-- **Forecast horizon** up to 50 years with economic limit detection
-- **CSV upload or paste** production data directly
-- **Synthetic data generator** for practice and testing
-- **Export report** functionality
+- **Arps decline models**
+  - Exponential (b = 0)
+  - Hyperbolic (0 < b < 1)
+  - Harmonic (b = 1)
+- Automatic model selection using AIC
+- Levenberg–Marquardt nonlinear optimization
+- Production forecast with economic limit detection
+- CSV upload or manual data paste
+- Synthetic data generator for testing
+- Interactive Plotly visualization
+
+---
 
 ## Engineering Notes
 
-- DCA is only valid during boundary-dominated flow — always set fit window 
-  to start at peak production, not first production
-- Di initialized at petroleum-realistic values (0.05–0.30/month)
-- b values above 1.0 trigger a warning — uncommon in conventional reservoirs
+- DCA is valid during boundary-dominated flow.
+- Fit window should typically begin at peak production.
+- Decline rate (Di) is initialized within petroleum-realistic ranges.
+- Hyperbolic b-values greater than 1.0 may indicate unconventional behavior or poor fit.
+
+---
+
+## Usage
+
+1. Upload or paste production data (date + rate).
+2. Select model or enable automatic model selection.
+3. Define fit window.
+4. Run curve fitting.
+5. Generate forecast and analyze results.
+
+---
 
 ## Tech Stack
 
-React · Vite · Plotly.js · Levenberg-Marquardt (optimization) · 
-GitHub Pages (deployment) · GitHub Actions (CI/CD)
+React · Vite · Plotly.js · Levenberg–Marquardt Optimization · GitHub Pages
 
-## Live App
+---
 
-[https://giacomocam.github.io/dca-app/](https://giacomocam.github.io/dca-app/)
+## Live Application
+
+🔗 https://giacomocam.github.io/dca-app/
