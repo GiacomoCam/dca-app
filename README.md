@@ -5,7 +5,7 @@ built to demonstrate Arps decline models on real production data.
 
 ## About
 
-Built by **Jainer Campo** — Petroleum Engineer (BSc, IUP Santiago Mariño) 
+Built by **Jainer Molina ** — Petroleum Engineer (BSc, IUP Santiago Mariño) 
 with specialized expertise in heavy oil recovery and Venezuelan reservoir operations.
 
 This tool is part of a portfolio of petroleum engineering applications 
