@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Activity } from 'lucide-react';
 import InputPanel from './components/InputPanel';
@@ -23,7 +22,7 @@ const App = () => {
 
   const handleFitRequest = () => {
     if (!data || data.length === 0) {
-      alert("Please load data first.");
+      alert('Please load data first.');
       return;
     }
 
@@ -36,11 +35,10 @@ const App = () => {
       }
 
       if (!results.modelType) results.modelType = fitConfig.modelType;
-
       setFitResults(results);
     } catch (err) {
       console.error(err);
-      alert("Fitting failed: " + err.message);
+      alert(`Fitting failed: ${err.message}`);
     }
   };
 
@@ -51,18 +49,13 @@ const App = () => {
     const { years, qLimit } = forecastConfig;
     const forecastDays = data[data.length - 1].t + years * 365;
     const startDate = new Date(data[0].date);
-
-    // Build forecast rows at monthly intervals
     const rows = [['date', 'type', 't_days', 'q_rate', 'Np_cumulative']];
 
-    // Historical data with fitted rate
-    data.forEach(d => {
-      const qFit = q_t(d.t / DAYS_PER_MONTH, params.qi, params.Di, params.b);
+    data.forEach((d) => {
       const np = Np_t(d.t / DAYS_PER_MONTH, params.qi, params.Di, params.b);
       rows.push([d.date, 'history', d.t, d.q.toFixed(2), np.toFixed(2)]);
     });
 
-    // Forecast portion at monthly steps
     const lastHistT = data[data.length - 1].t;
     for (let t = lastHistT + 30; t <= forecastDays; t += 30) {
       const tMonths = t / DAYS_PER_MONTH;
@@ -74,7 +67,6 @@ const App = () => {
       rows.push([d.toISOString().split('T')[0], 'forecast', t, q.toFixed(2), np.toFixed(2)]);
     }
 
-    // Summary header comment rows
     const summary = [
       `# DCA Export — Model: ${modelType}`,
       `# qi=${params.qi.toFixed(2)}, Di=${params.Di.toFixed(6)} /mo, b=${params.b.toFixed(4)}`,
@@ -83,7 +75,7 @@ const App = () => {
       '',
     ];
 
-    const csvContent = summary.join('\n') + rows.map(r => r.join(',')).join('\n');
+    const csvContent = `${summary.join('\n')}${rows.map((r) => r.join(',')).join('\n')}`;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -96,17 +88,24 @@ const App = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-slate-100 font-sans text-slate-900">
-      {/* Header */}
-      <header className="flex items-center px-6 py-3 bg-slate-900 text-white shadow-md z-10">
-        <Activity className="w-6 h-6 text-blue-400 mr-3" />
-        <h1 className="text-lg font-bold tracking-tight">DCA Pro <span className="text-slate-500 font-normal">| Decline Curve Analysis</span></h1>
+    <div className="suite-shell">
+      <header className="suite-header">
+        <div className="suite-brand">
+          <Activity className="h-6 w-6 text-[#8FB5DC]" />
+          <h1 className="text-lg font-semibold tracking-tight text-white">
+            DCA Pro <span className="text-slate-300 font-normal">| Decline Curve Analysis</span>
+          </h1>
+        </div>
+        <nav className="suite-nav" aria-label="Portfolio navigation">
+          <span className="suite-nav-current">Tool #1: DCA Pro</span>
+          <a className="suite-nav-link" href="https://JaiOil-Dev.github.io/ooip-calculator/" target="_blank" rel="noreferrer">
+            Tool #2: OOIP Calculator →
+          </a>
+        </nav>
       </header>
 
-      {/* Main Layout */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar - Inputs */}
-        <div className="w-80 flex-shrink-0 shadow-xl z-0">
+      <div className="suite-layout">
+        <div className="w-80 flex-shrink-0">
           <InputPanel
             onDataLoaded={handleDataLoaded}
             onFitRequest={handleFitRequest}
@@ -115,19 +114,17 @@ const App = () => {
           />
         </div>
 
-        {/* Center - Chart */}
-        <div className="flex-1 flex flex-col min-w-0 bg-slate-50">
+        <div className="flex-1 flex flex-col min-w-0">
           <ChartPanel
             data={data}
             fitResults={fitResults}
             forecastConfig={forecastConfig}
             logScale={logScale}
-            onToggleLogScale={() => setLogScale(s => !s)}
+            onToggleLogScale={() => setLogScale((s) => !s)}
           />
         </div>
 
-        {/* Right Sidebar - Results */}
-        <div className="w-80 flex-shrink-0 shadow-xl z-0">
+        <div className="w-80 flex-shrink-0">
           <ResultsPanel
             fitResults={fitResults}
             forecastConfig={forecastConfig}
