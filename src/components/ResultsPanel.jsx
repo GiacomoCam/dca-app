@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Download, Clipboard, ChevronRight } from 'lucide-react';
-import { Np_t, time_to_limit } from '../utils/arps';
+import { Download } from 'lucide-react';
+import { Np_t, time_to_limit, eur, annual_effective_decline } from '../utils/arps';
 
 const ResultsPanel = ({
     fitResults,
@@ -21,6 +21,11 @@ const ResultsPanel = ({
 
     // Format numbers helper
     const fmt = (n, d = 4) => n?.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }) ?? '-';
+    const fmtPct = (n) => n != null ? (n * 100).toFixed(1) + '%' : '-';
+
+    const annualDe = annual_effective_decline(params.Di, params.b);
+    const eurValue = eur(forecastConfig.qLimit, params.qi, params.Di, params.b);
+    const timeToLimitMonths = time_to_limit(forecastConfig.qLimit, params.qi, params.Di, params.b);
 
     return (
         <div className="flex flex-col h-full bg-white border-l border-slate-200 overflow-y-auto w-80">
@@ -38,8 +43,12 @@ const ResultsPanel = ({
                             <span className="text-sm font-mono text-slate-900 bg-slate-100 px-2 py-0.5 rounded">{fmt(params.qi, 1)}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-sm text-slate-600 font-medium">Di (nominal)</span>
+                            <span className="text-sm text-slate-600 font-medium" title="Nominal decline rate per month">Di (nom./mo)</span>
                             <span className="text-sm font-mono text-slate-900 bg-slate-100 px-2 py-0.5 rounded">{fmt(params.Di, 5)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm text-slate-600 font-medium" title="Annual effective decline rate">De (ann. eff.)</span>
+                            <span className="text-sm font-mono text-slate-900 bg-slate-100 px-2 py-0.5 rounded">{fmtPct(annualDe)}</span>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-sm text-slate-600 font-medium">b</span>
@@ -63,9 +72,13 @@ const ResultsPanel = ({
                             <span className="text-xs text-slate-500">R²</span>
                             <span className="text-sm font-semibold text-slate-800">{fmt(metrics.r2, 4)}</span>
                         </div>
-                        <div className="flex flex-col items-center p-2 bg-slate-50 rounded col-span-2">
-                            <span className="text-xs text-slate-500">AIC</span>
-                            <span className="text-sm font-semibold text-slate-800">{fmt(metrics.aic, 1)}</span>
+                        <div className="flex flex-col items-center p-2 bg-slate-50 rounded" title="Corrected Akaike Information Criterion — preferred for small samples">
+                            <span className="text-xs text-slate-500">AICc</span>
+                            <span className="text-sm font-semibold text-slate-800">{fmt(metrics.aicc, 1)}</span>
+                        </div>
+                        <div className="flex flex-col items-center p-2 bg-slate-50 rounded" title="Bayesian Information Criterion — penalizes model complexity more than AIC">
+                            <span className="text-xs text-slate-500">BIC</span>
+                            <span className="text-sm font-semibold text-slate-800">{fmt(metrics.bic, 1)}</span>
                         </div>
                     </div>
                 </div>
@@ -82,6 +95,15 @@ const ResultsPanel = ({
                         <h3 className="text-xs font-bold text-amber-700 uppercase mb-2 text-center">Fit Quality Warning</h3>
                         <p className="text-xs text-amber-900 leading-relaxed">
                             Fitted qi differs from the first data point by {(qiDeviation * 100).toFixed(1)}%. This can indicate an issue with fitting window or data quality.
+                        </p>
+                    </div>
+                )}
+
+                {params.b > 1.0 && (
+                    <div className="bg-orange-50 rounded-lg border border-orange-100 shadow-sm p-4">
+                        <h3 className="text-xs font-bold text-orange-700 uppercase mb-2 text-center">Unconventional Well Warning</h3>
+                        <p className="text-xs text-orange-900 leading-relaxed">
+                            b = {params.b.toFixed(3)} &gt; 1.0 is typical of transient flow in tight/unconventional wells. A terminal decline rate (Modified Hyperbolic) should be applied for reserves estimation to avoid overestimating EUR.
                         </p>
                     </div>
                 )}
@@ -117,15 +139,17 @@ const ResultsPanel = ({
                             />
                         </div>
 
-                        <div className="p-3 bg-green-50 rounded border border-green-100 flex flex-col gap-1">
+                        <div className="p-3 bg-green-50 rounded border border-green-100 flex flex-col gap-2">
                             <div className="flex justify-between text-xs">
                                 <span className="text-green-800">Time to Limit:</span>
                                 <span className="font-bold text-green-900">
-                                    {(() => {
-                                        const months = time_to_limit(forecastConfig.qLimit, params.qi, params.Di, params.b);
-                                        if (months === Infinity) return 'Never';
-                                        return `${(months / 12).toFixed(1)} years`;
-                                    })()}
+                                    {timeToLimitMonths === Infinity ? 'Never' : `${(timeToLimitMonths / 12).toFixed(1)} years`}
+                                </span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                                <span className="text-green-800">EUR at Limit:</span>
+                                <span className="font-bold text-green-900">
+                                    {eurValue != null && isFinite(eurValue) ? eurValue.toLocaleString(undefined, { maximumFractionDigits: 0 }) : '—'}
                                 </span>
                             </div>
                         </div>
@@ -141,7 +165,7 @@ const ResultsPanel = ({
                     className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-white border border-slate-300 shadow-sm text-slate-700 text-sm font-semibold rounded hover:bg-slate-50 transition-colors"
                 >
                     <Download className="w-4 h-4" />
-                    Export Report
+                    Export CSV
                 </button>
             </div>
         </div>

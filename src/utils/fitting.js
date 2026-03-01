@@ -27,8 +27,11 @@ const evaluateMetrics = (x, y, modelType, params) => {
     const n = y.length;
     const safeSse = Math.max(sse, 1e-12);
     const aic = 2 * k + n * Math.log(safeSse / n);
+    // Corrected AIC for small samples (AICc) — use when n is small relative to k
+    const aicc = n > k + 1 ? aic + (2 * k * (k + 1)) / (n - k - 1) : aic;
+    const bic = k * Math.log(n) + n * Math.log(safeSse / n);
 
-    return { sse, rmse, r2, aic, yPred };
+    return { sse, rmse, r2, aic, aicc, bic, yPred };
 };
 
 const buildCandidateGuesses = (firstRate, modelType) => {
@@ -106,7 +109,7 @@ export const fitData = (data, modelType, options = {}) => {
         const optionsLM = {
             damping: 1.5,
             initialValues,
-            gradientDifference: 1e-2,
+            gradientDifference: 1e-4,
             maxIterations: 200,
             errorTolerance: 1e-8
         };
@@ -156,7 +159,7 @@ export const autoFit = (data) => {
 
     return {
         ...winner,
-        selectionReason: `Selected ${winner.modelType} model because it has the lowest AIC (${winner.metrics.aic.toFixed(2)} vs ${runnerUp.modelType} ${runnerUp.metrics.aic.toFixed(2)}).`,
+        selectionReason: `Selected ${winner.modelType} model: lowest AICc (${winner.metrics.aicc.toFixed(2)} vs ${runnerUp.modelType} ${runnerUp.metrics.aicc.toFixed(2)}), R² = ${winner.metrics.r2.toFixed(4)}.`,
         candidateResults: results
     };
 };

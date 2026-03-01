@@ -2,6 +2,14 @@
 import Papa from 'papaparse';
 import { q_t } from './arps';
 
+// Box-Muller transform for Gaussian noise (mean=0, std=1)
+const gaussianRandom = () => {
+    let u, v;
+    do { u = Math.random(); } while (u === 0);
+    do { v = Math.random(); } while (v === 0);
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+};
+
 /**
  * Generate synthetic production data
  */
@@ -18,10 +26,8 @@ export const generateSyntheticData = (params, startRequest, durationDays = 365 *
         // Exact rate
         const q_model = q_t(t, qi, Di, b);
 
-        // Add noise
-        // noise is random gaussian or uniform around q_model
-        // Simple uniform noise: +/- noisePercent
-        const noise = (Math.random() - 0.5) * 2 * noisePercent * q_model;
+        // Gaussian noise with std = noisePercent * q_model (realistic production variability)
+        const noise = gaussianRandom() * noisePercent * q_model;
         let q = q_model + noise;
         if (q < 0) q = 0; // physical constraint
 
@@ -85,8 +91,8 @@ export const parseCSV = (file, callback) => {
 
             const processed = cleanData.map(d => {
                 const current = new Date(d.originalDate);
-                const diffTime = Math.abs(current - startDate);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const diffTime = current - startDate;
+                const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
                 return {
                     date: d.originalDate, // keep original string or obj
                     t: diffDays,
