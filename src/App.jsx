@@ -5,16 +5,20 @@ import InputPanel from './components/InputPanel';
 import ChartPanel from './components/ChartPanel';
 import ResultsPanel from './components/ResultsPanel';
 import { fitData, autoFit } from './utils/fitting';
+import { q_t, Np_t } from './utils/arps';
+
+const DAYS_PER_MONTH = 30.4375;
 
 const App = () => {
   const [data, setData] = useState([]);
   const [fitConfig, setFitConfig] = useState({ modelType: 'auto' });
   const [fitResults, setFitResults] = useState(null);
   const [forecastConfig, setForecastConfig] = useState({ years: 5, qLimit: 50 });
+  const [logScale, setLogScale] = useState(false);
 
   const handleDataLoaded = (newData) => {
     setData(newData);
-    setFitResults(null); // Reset results when new data loaded
+    setFitResults(null);
   };
 
   const handleFitRequest = () => {
@@ -31,7 +35,6 @@ const App = () => {
         results = fitData(data, fitConfig.modelType);
       }
 
-      // If we got results, augment with modelType if it wasn't there (for single fit)
       if (!results.modelType) results.modelType = fitConfig.modelType;
 
       setFitResults(results);
@@ -43,13 +46,54 @@ const App = () => {
 
   const handleExport = () => {
     if (!fitResults) return;
-    // simple CSV export logic
-    // ...
-    alert("Export feature coming soon! (Check console for params)");
-    console.log(fitResults);
-  };
 
-  // Auto-fit optional effect? No, let user click fit.
+    const { params, metrics, modelType } = fitResults;
+    const { years, qLimit } = forecastConfig;
+    const forecastDays = data[data.length - 1].t + years * 365;
+    const startDate = new Date(data[0].date);
+
+    // Build forecast rows at monthly intervals
+    const rows = [['date', 'type', 't_days', 'q_rate', 'Np_cumulative']];
+
+    // Historical data with fitted rate
+    data.forEach(d => {
+      const qFit = q_t(d.t / DAYS_PER_MONTH, params.qi, params.Di, params.b);
+      const np = Np_t(d.t / DAYS_PER_MONTH, params.qi, params.Di, params.b);
+      rows.push([d.date, 'history', d.t, d.q.toFixed(2), np.toFixed(2)]);
+    });
+
+    // Forecast portion at monthly steps
+    const lastHistT = data[data.length - 1].t;
+    for (let t = lastHistT + 30; t <= forecastDays; t += 30) {
+      const tMonths = t / DAYS_PER_MONTH;
+      const q = q_t(tMonths, params.qi, params.Di, params.b);
+      if (q < qLimit) break;
+      const np = Np_t(tMonths, params.qi, params.Di, params.b);
+      const d = new Date(startDate);
+      d.setDate(d.getDate() + t);
+      rows.push([d.toISOString().split('T')[0], 'forecast', t, q.toFixed(2), np.toFixed(2)]);
+    }
+
+    // Summary header comment rows
+    const summary = [
+      `# DCA Export — Model: ${modelType}`,
+      `# qi=${params.qi.toFixed(2)}, Di=${params.Di.toFixed(6)} /mo, b=${params.b.toFixed(4)}`,
+      `# R2=${metrics.r2.toFixed(4)}, RMSE=${metrics.rmse.toFixed(2)}, AICc=${metrics.aicc.toFixed(2)}, BIC=${metrics.bic.toFixed(2)}`,
+      `# Economic Limit=${qLimit}`,
+      '',
+    ];
+
+    const csvContent = summary.join('\n') + rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `dca_export_${modelType}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="flex flex-col h-screen bg-slate-100 font-sans text-slate-900">
@@ -77,6 +121,8 @@ const App = () => {
             data={data}
             fitResults={fitResults}
             forecastConfig={forecastConfig}
+            logScale={logScale}
+            onToggleLogScale={() => setLogScale(s => !s)}
           />
         </div>
 

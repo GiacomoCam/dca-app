@@ -86,6 +86,27 @@ export const nominal_to_effective = (Di, b = 0) => {
     return 1 - q1; // percentage drop in first unit of time
 };
 
+/**
+ * Calculate annual effective decline rate (De_annual)
+ * Converts the per-month nominal Di to a yearly effective decline rate.
+ * De_annual = 1 - q(12) / qi  (12 months = 1 year)
+ */
+export const annual_effective_decline = (Di, b = 0) => {
+    const q_annual = q_t(12, 1, Di, b); // rate after 1 year relative to qi=1
+    return 1 - q_annual;
+};
+
+/**
+ * Calculate Estimated Ultimate Recovery (EUR)
+ * Cumulative production from t=0 until the economic limit q_limit is reached,
+ * capped at the forecast horizon.
+ * Returns Np in the same volume units as qi * time.
+ */
+export const eur = (q_limit, qi, Di, b) => {
+    const t_limit = time_to_limit(q_limit, qi, Di, b);
+    return Np_t(t_limit === Infinity ? 1e6 : t_limit, qi, Di, b);
+};
+
 export const effective_to_nominal = (De, b = 0) => {
     // Inverse of above.. strictly strictly specific to period.
     // For exponential: De = 1 - exp(-Di) => Di = -ln(1-De)
