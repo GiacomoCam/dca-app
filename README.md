@@ -43,6 +43,7 @@ Key outputs:
 - Fit data should typically begin near stabilized peak/early decline period.
 - `Di` is handled as nominal monthly decline in this app.
 - Forecast and EUR are tied to a configurable economic limit, enabling quick screening.
+- Tooltips are intentionally written in plain English to support non-specialist stakeholders.
 - Hyperbolic `b > 1.0` may indicate unconventional/transient behavior and can overestimate EUR if no terminal decline is applied.
 
 ---
@@ -114,3 +115,8 @@ Based on common capabilities in open-source DCA ecosystems (e.g., petbox-dca, dc
 
 - **Tool #1:** DCA Pro (this repository)
 - **Tool #2:** OOIP Calculator → https://JaiOil-Dev.github.io/ooip-calculator/
+
+
+---
+
+**Built by Jainer M. · Petroleum Engineer**
