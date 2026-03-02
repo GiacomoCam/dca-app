@@ -17,7 +17,7 @@ Key outputs:
 
 ---
 
-## Features
+## Tool Description
 
 - **Arps decline models**
   - Exponential (`b = 0`)
@@ -34,6 +34,12 @@ Key outputs:
 - Interactive Plotly visualization with linear/log scale toggle
 - Contextual `[?]` tooltips for key parameters and results
 - Portfolio navigation link to OOIP Calculator
+DCA Pro fits production history with Arps models (exponential, hyperbolic, harmonic), scores model quality, and projects forecast performance down to economic limit.
+
+Key outputs:
+- Fitted parameters: `qi`, nominal `Di`, `b`
+- Goodness of fit: RMSE, R², AICc, BIC
+- Forecast KPIs: annual effective decline, time to economic limit, EUR
 
 ---
 
@@ -45,10 +51,29 @@ Key outputs:
 - Forecast and EUR are tied to a configurable economic limit, enabling quick screening.
 - Tooltips are intentionally written in plain English to support non-specialist stakeholders.
 - Hyperbolic `b > 1.0` may indicate unconventional/transient behavior and can overestimate EUR if no terminal decline is applied.
+- `Di` is handled as monthly nominal decline in this app.
+- Forecast and EUR are tied to a configurable economic limit, enabling quick screening.
+- Tooltips are intentionally written in plain English to support non-specialist stakeholders.
 
 ---
 
-## Usage
+## Validation Test (Reference Case)
+
+Input case:
+- `qi = 1000 bbl/d`
+- `Di = 0.10 /month`
+- `b = 0.5`
+- `Economic Limit = 50 bbl/d`
+
+Expected checks:
+- Time to limit ≈ **69.44 months** (5.79 years)
+- EUR at limit ≈ **15,528** (app internal units)
+- Annual Effective Decline = **60.94%**
+- Nominal Di remains displayed as **0.10000 /month**
+
+---
+
+## Industry Benchmark Feature Gap (Prioritized)
 
 1. Upload a CSV file (`date,rate`) or paste production data.
 2. Choose a model (exponential, hyperbolic, harmonic) or `auto`.
@@ -105,9 +130,10 @@ Based on common capabilities in open-source DCA ecosystems (e.g., petbox-dca, dc
 
 ---
 
-## Live Application
+## Live Link
 
 🔗 https://jaioil-dev.github.io/dca-app/
+🔗 https://giacomocam.github.io/dca-app/
 
 ---
 
